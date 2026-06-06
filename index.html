@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>testRigor × Claude Code — Agent Skills for AI test automation</title>
+  <meta name="description" content="Claude Code skills that let Claude author plain-English testRigor tests, run them on your local app via a tunnel, debug from results, and keep your cloud suite in sync.">
+  <style>
+    :root{
+      --ink:#0e1525; --muted:#5b6678; --line:#e6e9f0; --bg:#ffffff; --soft:#f6f7fb;
+      --brand:#4f46e5; --brand2:#7c3aed; --accent:#06b6d4; --ok:#0a7d33;
+      --code-bg:#0d1426; --code-ink:#e6ebf5; --radius:14px;
+      --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;font-family:var(--font);color:var(--ink);background:var(--bg);line-height:1.6}
+    a{color:var(--brand);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+    code{font-family:var(--mono);font-size:.92em}
+    h2{font-size:clamp(26px,4vw,36px);letter-spacing:-.02em;margin:0 0 10px}
+    h3{font-size:19px;letter-spacing:-.01em;margin:0}
+    .eyebrow{text-transform:uppercase;letter-spacing:.18em;font-size:12px;font-weight:800;color:var(--brand)}
+    .lead{color:var(--muted);font-size:18px;max-width:62ch}
+
+    /* nav */
+    .nav{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.85);backdrop-filter:saturate(160%) blur(10px);border-bottom:1px solid var(--line)}
+    .nav__in{display:flex;align-items:center;justify-content:space-between;height:62px}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
+    .brand b{font-weight:800}
+    .brand .x{color:var(--muted);font-weight:500}
+    .logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:900}
+    .nav__links{display:flex;gap:22px;align-items:center}
+    .nav__links a{color:#3a4253;font-weight:600;font-size:15px}
+    .nav__links a:hover{color:var(--ink);text-decoration:none}
+    @media(max-width:720px){.nav__links a:not(.btn){display:none}}
+
+    .btn{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:15px;padding:11px 20px;border-radius:999px;border:1.5px solid var(--brand);background:var(--brand);color:#fff!important;cursor:pointer}
+    .btn:hover{background:#4338ca;border-color:#4338ca;text-decoration:none}
+    .btn--ghost{background:transparent;color:var(--brand)!important}
+    .btn--ghost:hover{background:var(--soft)}
+
+    /* hero */
+    .hero{background:radial-gradient(120% 130% at 80% 0%,#2b1d6b 0%,#0e1230 60%);color:#fff;overflow:hidden}
+    .hero__in{padding:84px 24px 92px;max-width:1080px;margin:0 auto;position:relative}
+    .hero .eyebrow{color:#a5b4fc}
+    .hero h1{font-size:clamp(36px,6.2vw,62px);line-height:1.04;letter-spacing:-.03em;margin:14px 0 18px;max-width:18ch;font-weight:900}
+    .hero p{color:#c7cde3;font-size:19px;max-width:60ch;margin:0 0 30px}
+    .hero__cta{display:flex;gap:14px;flex-wrap:wrap}
+    .hero__cta .btn{border-color:#fff;background:#fff;color:#1e1b4b!important}
+    .hero__cta .btn:hover{background:#eef}
+    .hero__cta .btn--ghost{background:transparent;color:#fff!important;border-color:rgba(255,255,255,.5)}
+
+    /* sections */
+    section.block{padding:72px 0;border-bottom:1px solid var(--line)}
+    section.block.soft{background:var(--soft)}
+    .head{max-width:64ch;margin-bottom:34px}
+
+    /* concept loop */
+    .loop{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:8px}
+    @media(max-width:760px){.loop{grid-template-columns:1fr 1fr}}
+    .step{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+    .step .n{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+    .step b{display:block;font-size:16px;margin-bottom:4px}
+    .step span{color:var(--muted);font-size:14px}
+    .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:26px}
+    @media(max-width:760px){.pillars{grid-template-columns:1fr}}
+    .pillar b{display:block;margin-bottom:4px}
+    .pillar p{color:var(--muted);font-size:15px;margin:0}
+
+    /* skills grid */
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}}
+    .card{border:1px solid var(--line);border-radius:var(--radius);padding:22px;background:#fff;position:relative}
+    .card .ico{width:40px;height:40px;border-radius:10px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:12px}
+    .card .path{font-family:var(--mono);font-size:13px;color:var(--brand);font-weight:600}
+    .card h3{margin:6px 0 8px}
+    .card p{color:var(--muted);font-size:15px;margin:0 0 10px}
+    .card .tag{display:inline-block;font-size:12px;font-weight:700;color:#3730a3;background:#eef2ff;padding:3px 10px;border-radius:999px}
+    .badge{position:absolute;top:18px;right:18px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(135deg,var(--brand),var(--brand2));padding:4px 10px;border-radius:999px}
+
+    /* code */
+    pre{position:relative;background:var(--code-bg);color:var(--code-ink);border-radius:12px;padding:18px 18px;overflow:auto;font-family:var(--mono);font-size:14px;line-height:1.7;margin:16px 0}
+    pre .c{color:#8b97b8} pre .k{color:#7dd3fc}
+    .copy{position:absolute;top:10px;right:10px;font:inherit;font-size:12px;font-weight:700;color:#cdd6f0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:8px;padding:4px 10px;cursor:pointer}
+    .copy:hover{background:rgba(255,255,255,.16)}
+
+    .steps{counter-reset:s;display:grid;gap:18px;margin-top:8px}
+    .istep{display:grid;grid-template-columns:34px 1fr;gap:14px;align-items:start}
+    .istep .num{counter-increment:s;width:34px;height:34px;border-radius:50%;background:var(--brand);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+    .istep .num::before{content:counter(s)}
+    .istep h3{margin-bottom:2px}
+    .istep p{color:var(--muted);margin:2px 0 0;font-size:15px}
+    .note{background:#eef2ff;border:1px solid #dfe4ff;border-radius:12px;padding:14px 16px;color:#3730a3;font-size:14px;margin-top:18px}
+
+    ul.checks{list-style:none;padding:0;margin:0 0 8px;display:grid;gap:8px}
+    ul.checks li{padding-left:28px;position:relative;color:#33404f}
+    ul.checks li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-weight:800}
+
+    .prompts{display:grid;gap:10px;margin-top:8px}
+    .prompt{background:#fff;border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:10px;padding:12px 16px;color:#2a3342;font-size:15px}
+    .prompt::before{content:"“";color:var(--brand);font-weight:800;margin-right:4px}
+    .prompt::after{content:"”";color:var(--brand);font-weight:800;margin-left:2px}
+
+    footer{padding:46px 0;color:var(--muted);font-size:14px}
+    footer .row{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;align-items:center}
+    footer a{color:#3a4253;font-weight:600}
+  </style>
+</head>
+<body>
+
+  <header class="nav">
+    <div class="wrap nav__in">
+      <a class="brand" href="#top"><span class="logo">tR</span> <b>testRigor</b> <span class="x">×</span> <b>Claude&nbsp;Code</b></a>
+      <nav class="nav__links">
+        <a href="#concepts">Concepts</a>
+        <a href="#skills">Skills</a>
+        <a href="#install">Install</a>
+        <a href="#usage">Usage</a>
+        <a class="btn btn--ghost" href="https://github.com/TestRigor/skills">GitHub ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <a id="top"></a>
+  <section class="hero">
+    <div class="hero__in">
+      <p class="eyebrow">Claude Code Agent Skills</p>
+      <h1>Build, run &amp; debug testRigor tests with Claude Code</h1>
+      <p>A set of Claude Code skills that teach Claude to write plain-English testRigor tests,
+         run them against your local app through a secure tunnel, debug from real results,
+         and keep your cloud test suite in sync — all from your repository.</p>
+      <div class="hero__cta">
+        <a class="btn" href="#install">Get started</a>
+        <a class="btn btn--ghost" href="#skills">Browse the skills</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONCEPTS -->
+  <section class="block" id="concepts">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Concepts</p>
+        <h2>How it works</h2>
+        <p class="lead"><a href="https://testrigor.com">testRigor</a> runs UI tests written in
+        plain English on cloud browsers. <b>Claude Code</b> is the agent that drives them. These
+        skills are the glue: your tests live as files in your repo, the <code>testrigor</code> CLI
+        pushes them to a cloud <em>test suite</em> and runs them, and results come back as an exit
+        code plus a JUnit report. You can point a run at a deployed URL — or at
+        <code>localhost</code>, reached through testRigor's tunnel.</p>
+      </div>
+
+      <div class="loop">
+        <div class="step"><div class="n">1</div><b>Build</b><span>Write test cases &amp; reusable rules as plain-English files in your repo.</span></div>
+        <div class="step"><div class="n">2</div><b>Run on localhost</b><span>The CLI tunnels testRigor's cloud browsers to your local app.</span></div>
+        <div class="step"><div class="n">3</div><b>Debug</b><span>Read the exit code, the JUnit report, and the run URL; fix; repeat.</span></div>
+        <div class="step"><div class="n">4</div><b>Update remote</b><span>Re-running pushes your files, so the cloud suite always matches your repo.</span></div>
+      </div>
+
+      <div class="pillars">
+        <div class="pillar"><b>Plain English, not selectors</b><p>Refer to what the user sees — <code>click "Sign in"</code> — never CSS/XPath.</p></div>
+        <div class="pillar"><b>Tests as code</b><p>Test cases, rules and variables are files you version alongside your app.</p></div>
+        <div class="pillar"><b>Environment-agnostic</b><p>The same tests run on local, staging, or prod — the URL is supplied at run time.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SKILLS -->
+  <section class="block soft" id="skills">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">The skills</p>
+        <h2>Four focused skills</h2>
+        <p class="lead">Each folder is a self-contained Claude Code skill (a <code>SKILL.md</code> plus
+        optional references). They're split so Claude loads only what's relevant to the moment —
+        authoring, running, API steps, or the full loop.</p>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <span class="badge">Start here</span>
+          <div class="ico">🔁</div>
+          <div class="path">testrigor-dev-loop/</div>
+          <h3>The dev-loop playbook</h3>
+          <p>The orchestration layer: build → run on localhost → debug → update the remote suite by
+          re-running. Sequences the other three skills and holds the repo layout and run commands.</p>
+          <span class="tag">use it to: develop tests end-to-end from a repo</span>
+        </div>
+
+        <div class="card">
+          <div class="ico">✍️</div>
+          <div class="path">testrigor-write-tests/</div>
+          <h3>Authoring the test language</h3>
+          <p>The plain-English command catalog (navigation, clicks, assertions, reusable rules,
+          variables, data-driven, email/SMS/2FA) and the on-disk file formats. Ships a full
+          <code>reference.md</code> command reference.</p>
+          <span class="tag">use it to: write or edit test cases &amp; rules</span>
+        </div>
+
+        <div class="card">
+          <div class="ico">⌨️</div>
+          <div class="path">testrigor-cli/</div>
+          <h3>Running with the CLI</h3>
+          <p>Everything about the <code>testrigor</code> CLI: non-interactive auth, the file-mutation
+          model (running pushes your files into the suite), the localhost tunnel, labels, JUnit
+          reports, and how to read results for debugging.</p>
+          <span class="tag">use it to: run, gate CI, debug a run</span>
+        </div>
+
+        <div class="card">
+          <div class="ico">🔌</div>
+          <div class="path">testrigor-api-testing/</div>
+          <h3>API testing &amp; mocking</h3>
+          <p>Write <code>call api</code> / <code>mock api</code> steps inside a test: REST calls with
+          headers and bodies, JSONPath extraction, HTTP-status assertions, and chaining API calls
+          with UI checks.</p>
+          <span class="tag">use it to: test or stub APIs in a flow</span>
+        </div>
+      </div>
+
+      <div class="note" style="margin-top:22px">
+        <b>examples/</b> — runnable demos (<code>simple-search</code>, <code>shop-checkout</code>) that
+        double as documentation: complete test projects you can run to see the dev loop in action.
+      </div>
+    </div>
+  </section>
+
+  <!-- INSTALL -->
+  <section class="block" id="install">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Install</p>
+        <h2>Set it up in a couple of minutes</h2>
+        <p class="lead">You need a <a href="https://testrigor.com">testRigor</a> account (for an API
+        token), Node.js 18+, and Claude Code.</p>
+      </div>
+
+      <div class="steps">
+        <div class="istep">
+          <div class="num"></div>
+          <div>
+            <h3>Install the testRigor CLI</h3>
+            <p>The skills drive this binary (<code>testrigor</code>).</p>
+<pre><code><span class="c"># Node.js 18+</span>
+npm install -g testrigor-cli
+testrigor --version</code></pre>
+          </div>
+        </div>
+
+        <div class="istep">
+          <div class="num"></div>
+          <div>
+            <h3>Authenticate (non-interactive)</h3>
+            <p>Create a Personal Authentication Token in testRigor (your name → <em>API Tokens</em> →
+            Generate). Export it so Claude/CI never hit an interactive prompt.</p>
+<pre><code>export TESTRIGOR_API_KEY=<span class="k">"your-personal-auth-token"</span></code></pre>
+          </div>
+        </div>
+
+        <div class="istep">
+          <div class="num"></div>
+          <div>
+            <h3>Install the skills into Claude Code</h3>
+            <p>Copy the skill folders into Claude Code's skills directory.</p>
+<pre><code>git clone https://github.com/TestRigor/skills.git
+
+<span class="c"># Personal (available in every project):</span>
+mkdir -p ~/.claude/skills
+cp -r skills/testrigor-* ~/.claude/skills/
+
+<span class="c"># …or project-scoped (commit them with one repo):</span>
+<span class="c"># cp -r skills/testrigor-* &lt;your-project&gt;/.claude/skills/</span></code></pre>
+            <div class="note">Claude Code discovers any <code>SKILL.md</code> under <code>~/.claude/skills/</code>
+            (personal) or <code>&lt;project&gt;/.claude/skills/</code> (project). Each <code>testrigor-*</code>
+            folder is one skill — drop in all four.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- USAGE -->
+  <section class="block soft" id="usage">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Usage</p>
+        <h2>Using it with Claude</h2>
+        <p class="lead">Point the CLI at a test suite, then just ask Claude — it pulls in the right
+        skill automatically based on what you're doing.</p>
+      </div>
+
+      <h3 style="margin-bottom:6px">1 · Point at a suite</h3>
+      <p class="lead" style="margin-top:0">Grab the suite ID from its URL in the testRigor app.</p>
+<pre><code>testrigor test-suite config --default <span class="k">&lt;YOUR_SUITE_ID&gt;</span></code></pre>
+
+      <h3 style="margin:26px 0 6px">2 · Ask Claude</h3>
+      <div class="prompts">
+        <div class="prompt">Write a testRigor test that logs in and checks the dashboard, then run it against http://localhost:3000.</div>
+        <div class="prompt">My checkout test is failing — debug it from the JUnit report and fix it.</div>
+        <div class="prompt">Add API seeding to this test with call api, then verify the result in the UI.</div>
+      </div>
+
+      <h3 style="margin:26px 0 6px">3 · The loop Claude runs for you</h3>
+      <p class="lead" style="margin-top:0">Serve your app locally; the tests run against it through the tunnel and the suite is updated by the same command.</p>
+<pre><code><span class="c"># your app on :3000, then:</span>
+testrigor test-suite run --localhost --url <span class="k">"http://localhost:3000"</span> \
+  --test-cases-path <span class="k">"tests/**/*.txt"</span> \
+  --rules-path <span class="k">"rules/**/*.txt"</span> \
+  --explicit-mutations \
+  --junit-report-save-path report.xml</code></pre>
+      <p class="lead">Exit code <code>0</code> and <code>failures="0"</code> in <code>report.xml</code> mean green.
+      For the full walkthrough, open <a href="testrigor-dev-loop/SKILL.md">testrigor-dev-loop</a> or run an
+      <a href="examples/">example</a>.</p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap row">
+      <div>Built for testing testRigor with Claude Code · MIT licensed</div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap">
+        <a href="https://github.com/TestRigor/skills">GitHub</a>
+        <a href="https://www.npmjs.com/package/testrigor-cli">CLI on npm</a>
+        <a href="https://testrigor.com/docs/">testRigor docs</a>
+        <a href="https://testrigor.com">testrigor.com</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // copy buttons on code blocks
+    document.querySelectorAll('pre').forEach(function (pre) {
+      var btn = document.createElement('button');
+      btn.className = 'copy'; btn.type = 'button'; btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var code = pre.querySelector('code');
+        navigator.clipboard.writeText(code.innerText).then(function () {
+          btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1400);
+        });
+      });
+      pre.appendChild(btn);
+    });
+  </script>
+</body>
+</html>
