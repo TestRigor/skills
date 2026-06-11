@@ -1,8 +1,12 @@
 # testRigor Plain-English Command Reference
 
-The complete command catalog. Commands are case-insensitive and tolerant of
-phrasing, but the keywords below are the documented, most-reliable forms.
-Anything in `"quotes"` is what the end user sees or types.
+The complete command catalog. Commands are case-insensitive and tolerant of phrasing, but the keywords below are the documented, most-reliable forms. Anything in `"quotes"` is what the end user sees or types.
+
+**How to read this file:**
+
+- **One command per line.** Each line in a code block is a *separate* step — a complete command on its own.
+- **`//` starts a comment**, not part of the command. It explains the step or, where two similar commands exist, says when to pick which.
+- **A `/` between words lists alternatives, not one step.** `scroll down / up / left / right` means four separate commands (`scroll down`, `scroll up`, `scroll left`, `scroll right`) — use whichever direction you need; don't paste the line verbatim.
 
 > Official language docs: https://testrigor.com/docs/language/
 
@@ -37,11 +41,11 @@ middle click on "link"
 long click on "tile"
 long click on "tile" by 5 sec
 
-click "element" using AI            // when the caption is fuzzy / visual
-click "element" using OCR           // text rendered in an image/canvas
-click "element" using javascript
-click "element" using the mouse
-click "element" without scrolling
+click "element" using AI            // last resort: caption is fuzzy / purely visual
+click "element" using OCR           // text is baked into an image/canvas (not real DOM text)
+click "element" using javascript    // force a JS click when a normal click won't register
+click "element" using the mouse     // simulate a real mouse click (hover effects, etc.)
+click "element" without scrolling   // don't auto-scroll the element into view first
 click "element" considering overlapped elements
 click "element" with retries if the next step fails
 click in the middle of the screen
@@ -93,9 +97,9 @@ Page content:
 
 ```
 check that page contains "text"
-check that page contains stored value from "variable"
-check that page contains "text" using OCR
-check that page doesn't contain 4th button
+check that page contains stored value from "variable"   // compares against a saved value
+check that page contains "text" using OCR               // only when the text is inside an image/canvas
+check that page doesn't contain 4th button              // negative check
 check that page didn't change
 check that page didn't change compared to the previous step
 ```
@@ -161,10 +165,10 @@ drag file "https://.../a.png" onto "Dropzone"
 drag file from saved value "File" onto "Dropzone"
 drag "canvas" with offset "0,0" to "canvas" with offset "50,50"
 
-scroll down / up / left / right
-scroll down on "list"
+scroll down / up / left / right     // four separate commands — pick one direction
+scroll down on "list"               // scroll inside a specific element, not the page
 scroll down by 1/2 of the screen
-scroll down until page contains "Footer"
+scroll down until page contains "Footer"    // prefer this over a blind scroll + wait
 scroll down to the bottom of the page
 scroll up to the top of the page
 scroll down on "text" using the mouse until page contains "Sign here!"
@@ -184,8 +188,7 @@ long press on the 3rd "thumbnail"
 wait 3 seconds                      // maximum 2 minutes
 ```
 
-Prefer `scroll ... until page contains` or `click ... if exists` over fixed waits;
-testRigor auto-waits for elements, so explicit waits are rarely needed.
+Prefer `scroll ... until page contains` or `click ... if exists` over fixed waits; testRigor auto-waits for elements, so explicit waits are rarely needed.
 
 ## Keyboard modifiers
 
@@ -203,8 +206,11 @@ Supported keys: Control, Shift, Alt, Command, F1–F12, Enter, Space, Delete, Ba
 
 ```
 save value "text" as "name"
+// ${var} interpolates ONLY inside `string with parameters` (and `save expression`) — never a bare "string"
 save string with parameters "${base}/path" as "fullPath"
 save expression "${a} + ${b}" as "answer"
+enter from the string with parameters "${homePrefix}/checkout" into "URL"   // interpolate into an action
+check that page contains string with parameters "Welcome, ${firstName}"     // interpolate into an assertion
 
 grab value from "Total" and save it as "orderTotal"
 grab value of "\d{3}-\d{4}" and save it as "extracted"        // regex
@@ -313,16 +319,16 @@ upload file "https://example.com/avatar.jpeg" to device
 ## Forms
 
 ```
-fill out form
-fill out required fields in form
-fill out the rest of the form
+fill out form                       // every field
+fill out required fields in form    // only the required ones
+fill out the rest of the form       // "the rest of" = leave fields you already filled, do the others
 fill out the rest of the required fields in form
-fill out form "Billing"
-fill out form identified by field "First name"
-fill out form with generated values
+fill out form "Billing"             // scope to a named form/section
+fill out form identified by field "First name"   // scope by a field the form contains
+fill out form with generated values // synthesize realistic values
 fill out required fields in form with sample values
-fill out form using ai for unrecognized fields
-fill out form and skip unrecognized fields
+fill out form using ai for unrecognized fields   // let AI handle fields it can't map
+fill out form and skip unrecognized fields        // ...or just skip them instead
 
 fill out all fields
 fill out all required fields
@@ -378,7 +384,7 @@ crawl sitemap "https://example.com/sitemap.xml"
 take screenshot
 ```
 
-API testing (`call api`, `mock api`) — see the `testrigor-api-testing` skill.
+API testing (`call api`, `mock api`) — see [api-testing.md](api-testing.md).
 
 ---
 
@@ -449,15 +455,8 @@ click "Cookie banner" if exists
 
 ## Pre-defined variables
 
-System: `username`, `password`, `homeDomain`, `homeFile`, `homePrefix`,
-`testSuiteParentFolder`, `testSuitePath`, `testSuiteName`, `testCaseName`,
-`testCaseExecutionLink`, `currentUrl`, `browser`, `device`, `provider`, `os`,
-`osVersion`, `abi`, `appFileName`.
+System: `username`, `password`, `homeDomain`, `homeFile`, `homePrefix`, `testSuiteParentFolder`, `testSuitePath`, `testSuiteName`, `testCaseName`, `testCaseExecutionLink`, `currentUrl`, `browser`, `device`, `provider`, `os`, `osVersion`, `abi`, `appFileName`.
 
-Date/time: `todayYear`, `todayMonth`, `todayDayOfMonth`, `todayDayOfWeek`,
-`nextYear`, `previousYear`, `nextMonth`, `previousMonth`, `nowHour`, `nowMinute`,
-`nowSecond`, `nowDateIso`, `nowTimeIso`, `nowDateTimeIso`, `nowMillisecondsFrom1970`,
-`nowNanosecond`.
+Date/time: `todayYear`, `todayMonth`, `todayDayOfMonth`, `todayDayOfWeek`, `nextYear`, `previousYear`, `nextMonth`, `previousMonth`, `nowHour`, `nowMinute`, `nowSecond`, `nowDateIso`, `nowTimeIso`, `nowDateTimeIso`, `nowMillisecondsFrom1970`, `nowNanosecond`.
 
-Reference any of them as `stored value "homeDomain"` or `${homeDomain}` inside
-strings.
+Reference any of them as `stored value "homeDomain"`. The `${homeDomain}` form interpolates **only** inside a `string with parameters "..."` literal (and inside `save expression`) — a bare `"quoted string"` is matched literally, so `check that page contains "Hi ${name}"` looks for the characters `${name}`. To interpolate, wrap the string: `check that page contains string with parameters "Hi ${name}"`, or compare against the saved value directly with `check that page contains stored value from "name"`.

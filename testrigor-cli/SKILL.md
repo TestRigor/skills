@@ -23,13 +23,11 @@ metadata:
 
 # testRigor CLI
 
-`testrigor` triggers testRigor test-suite runs from a terminal or CI pipeline.
-The suite lives in testRigor's cloud; a run can **push local test files into it**
-(updating the suite) and pull back a JUnit report.
+`testrigor` triggers testRigor test-suite runs from a terminal or CI pipeline. The suite lives in testRigor's cloud; a run can **push local test files into it** (updating the suite) and pull back a JUnit report.
 
-This skill is the flag-level reference. To **write** test cases use
-`testrigor-write-tests`; for the full **build → run → debug → update loop** (the
-recommended way to develop tests as code) follow `testrigor-dev-loop`.
+This skill is the flag-level reference. To **write** test cases use `testrigor-write-tests`; for the full **build → run → debug → update loop** (the recommended way to develop tests as code) follow `testrigor-dev-loop`.
+
+> Official CLI docs: https://testrigor.com/command-line/
 
 ## Install & verify
 
@@ -43,29 +41,24 @@ testrigor --help
 
 ## Authentication
 
-Two token types exist:
+The CLI authenticates with a **Personal Authentication Token (PAT)** — your personal token. Get it in the app: *username (top-right) → API Tokens → Generate New Token*.
 
-- **Personal Authentication Token (PAT)** — your personal token. Get it in the app:
-  *username (top-right) → API Tokens → Generate New Token*.
-- **Suite CI/CD token** — tied to one suite. Get it from the suite's *CI/CD
-  Integration* page.
+Provide it one of three ways; the CLI resolves in this priority order (first hit wins):
 
-The CLI resolves a token in this exact priority order (first hit wins):
-
-1. **`TESTRIGOR_API_KEY` env var** ← use this for Claude/CI; fully non-interactive
-2. `--auth-token <PAT>` flag
-3. `-t, --token <SUITE_TOKEN>` flag
-4. `~/.testrigor/testrigor.yml` (written by `testrigor authenticate`)
-
-> ⚠️ `testrigor authenticate` opens an **interactive hidden prompt** — it will hang
-> in an agent/CI context. For automation, set the environment variable instead:
+1. **`TESTRIGOR_API_KEY` env var** — fully non-interactive; **use this for agents/CI**.
+2. **`--auth-token <PAT>` flag** — per-command.
+3. **`~/.testrigor/testrigor.yml`** — written once by `testrigor authenticate`.
 
 ```bash
 export TESTRIGOR_API_KEY="<YOUR_PAT>"      # non-interactive; highest priority
 ```
 
-Suite ID resolves from the positional arg, else the stored default. Set a default
-(non-interactive) so you can omit it afterward — the ID is in the suite's URL:
+`testrigor authenticate` prompts for the PAT and stores it in `~/.testrigor`. It's an **interactive** prompt, so:
+
+- **A human running setup may use it once** — it then persists, and later commands need no token. Good for a local workstation.
+- **An agent/CI loop must not call it** — the hidden prompt will hang. There, set `TESTRIGOR_API_KEY` (or pass `--auth-token`) instead.
+
+Suite ID resolves from the positional arg, else the stored default. Set a default (non-interactive) so you can omit it afterward — the ID is in the suite's URL:
 
 ```bash
 testrigor test-suite config --default <TEST_SUITE_ID>
@@ -78,24 +71,21 @@ testrigor test-suite config --delete
 ## Running a suite
 
 ```bash
-# Uses default suite ID + stored PAT
+# Uses default suite ID + PAT from the environment
 testrigor test-suite run
 
-# Explicit suite + suite CI token
-testrigor test-suite run <TEST_SUITE_ID> --token <SUITE_CI_TOKEN>
+# Explicit suite ID
+testrigor test-suite run <TEST_SUITE_ID>
 
-# Explicit suite + personal token
+# Explicit suite + per-command PAT
 testrigor test-suite run <TEST_SUITE_ID> --auth-token <PAT>
 ```
 
-Exit status reflects the run: a **non-zero exit means the run failed** (sync mode),
-so the command works directly as a CI gate. Each run also **auto-cancels the previous
-run** of the same suite.
+Exit status reflects the run: a **non-zero exit means the run failed** (sync mode), so the command works directly as a CI gate. Each run also **auto-cancels the previous run** of the same suite.
 
 ## Updating the suite by running (mutations)
 
-There is no separate "deploy" step. The file-push flags below are parsed locally and
-sent with the run request, so **running updates the remote suite to match your files**:
+There is no separate "deploy" step. The file-push flags below are parsed locally and sent with the run request, so **running updates the remote suite to match your files**:
 
 | Flag | Sent to the API as | Effect |
 |------|--------------------|--------|
@@ -107,49 +97,67 @@ sent with the run request, so **running updates the remote suite to match your f
 
 **Identity** — how a file maps to a remote object:
 
-- A test case is matched by its **filename** (→ `description`/name), or by a
-  `testCaseUuid` field inside a `.yaml` file (pins to one existing test case).
+- A test case is matched by its **filename** (→ `description`/name), or by a `testCaseUuid` field inside a `.yaml` file (pins to one existing test case).
 - A rule is matched by its **filename** (→ rule name).
 
-So: edit a file, re-run → that same-named test/rule is updated remotely. Rename a file
-→ a new object is created and the old one is orphaned (unless you used `testCaseUuid`).
+Worked example — **match by filename** (the common case):
+
+```bash
+# test-cases/checkout.txt  → a test case named "checkout"
+testrigor test-suite run "$SUITE" --test-cases-path "test-cases/**/*.txt"
+# Edit checkout.txt, re-run → the remote "checkout" test is UPDATED in place.
+# Rename it to checkout-flow.txt, re-run → a NEW "checkout-flow" test is created and the
+# old "checkout" is left behind (orphaned).
+```
+
+Worked example — **pin by `testCaseUuid`** (rename-safe):
+
+```yaml
+# test-cases/checkout.yaml
+customSteps: |
+  login
+  click "Checkout"
+  check that page contains "Thank you for your order"
+testCaseUuid: "a1b2c3d4-...."   # the exact remote test case to update
+```
+
+```bash
+testrigor test-suite run "$SUITE" --test-cases-path "test-cases/**/*.yaml"
+# Now the filename is irrelevant — the run updates THAT existing test case by UUID, even
+# if you rename the file. Use this to keep a stable link to a specific remote test.
+```
 
 Two behaviors confirmed against a live suite:
 
-- **A plain push is additive, and the run executes the *whole* suite.** Without
-  `--explicit-mutations`, your files are created/updated by name and any pre-existing
-  test cases remain and **also run** — all against the single `--url` you pass, so
-  tests authored for a *different* app/URL will fail (and failing steps wait for
-  timeouts, making the run much slower). To run only your subset, label your tests and
-  pass `--labels`.
-- **Additive push can't delete.** To remove a remote test, either delete it in the UI,
-  or manage the entire suite as files and run with `--explicit-mutations` (your local
-  set becomes authoritative — anything not present is dropped, *including tests you
-  didn't author*, so use it deliberately).
+- **A plain push is additive, and the run executes the *whole* suite.** Without `--explicit-mutations`, your files are created/updated by name and any pre-existing test cases remain and **also run** — all against the single `--url` you pass, so tests authored for a *different* app/URL will fail (and failing steps wait for timeouts, making the run much slower). To run only your subset, label your tests and pass `--labels`.
+- **Additive push can't delete.** To remove a remote test, either delete it in the UI, or manage the entire suite as files and run with `--explicit-mutations` (your local set becomes authoritative — anything not present is dropped, *including tests you didn't author*, so use it deliberately).
 
-For the on-disk file schema, see the `testrigor-write-tests` skill; for the whole
-build → run → debug → update loop, see `testrigor-dev-loop`.
+For the on-disk file schema (`.txt` vs `.yaml`, labels, datasets, `testCaseUuid`), see the `testrigor-write-tests` skill; for the whole build → run → debug → update loop, see `testrigor-dev-loop`.
 
 ## Command tree
 
 ```
-testrigor authenticate                 # INTERACTIVE prompt — avoid in automation (use TESTRIGOR_API_KEY)
+testrigor authenticate                 # INTERACTIVE prompt — human-once only; never in automation
 testrigor test-suite config             # --default <id> | --show | --delete
 testrigor test-suite run [ID] [flags]   # push files + trigger a run
 testrigor plugins                       # list installed plugins
 testrigor help [command]
 ```
 
+`test-suite config` manages the **stored default suite** so you don't repeat the ID:
+
+- `--default <id>` saves `<id>` as the default. **After this, `testrigor test-suite run` (no ID) targets that suite** — you don't pass the ID again.
+- `--show` prints the current default; `--delete` clears it.
+
+So the usual setup is `config --default <id>` once, then plain `test-suite run` from then on. Passing an explicit ID to `run` always overrides the stored default for that one command.
+
 ## `test-suite run` flags
 
-Authentication / connection:
+Authentication:
 
 | Flag | Purpose |
 |------|---------|
-| `--auth-token <value>` | Personal authentication token (PAT) |
-| `-t, --token <value>` | Suite CI/CD authentication token |
-| `--base-url-web <value>` | Web base URL (e.g. `https://app.testrigor.com`) — self-hosted/region |
-| `--base-url-api <value>` | API base URL (e.g. `https://api2.testrigor.com`) |
+| `--auth-token <value>` | Personal Authentication Token (PAT). Prefer the `TESTRIGOR_API_KEY` env var for automation. |
 
 Run control:
 
@@ -183,7 +191,7 @@ Git context (annotate the run with branch/commit):
 | `--branch <name>` | Branch name (requires `--commit`) |
 | `--commit <hash>` | Commit hash (requires `--branch`) |
 
-Pushing local test definitions (store tests in your own repo):
+Pushing local test definitions (store tests in your own repo) — for the per-file schema and worked examples of each file type, see the **`testrigor-write-tests`** skill:
 
 | Flag | Purpose |
 |------|---------|
@@ -202,15 +210,11 @@ Reporting:
 
 ## Localhost debugging (the tunnel)
 
-`--localhost --url http://localhost:3000` lets testRigor's cloud browsers reach an app
-running on your machine. Mechanics (so you know what to expect):
+`--localhost --url http://localhost:3000` lets testRigor's cloud browsers reach an app running on your machine. Mechanics (so you know what to expect):
 
-- On first use the CLI downloads a small tunnel binary (`trtc`) into
-  `~/.testrigor/trtc/` — needs outbound network the first time.
-- It opens a tunnel on a port in `--min-port`..`--max-port` (40000–50000) and routes
-  the run's traffic through it; the tunnel is torn down when the run ends.
-- `--url` must be the locally reachable address (`http://localhost:PORT`,
-  `http://127.0.0.1:PORT`). `--localhost` without `--url` is rejected.
+- On first use the CLI downloads a small tunnel binary (`trtc`) into `~/.testrigor/trtc/` — needs outbound network the first time.
+- It opens a tunnel on a port in `--min-port`..`--max-port` (40000–50000) and routes the run's traffic through it; the tunnel is torn down when the run ends.
+- `--url` must be the locally reachable address (`http://localhost:PORT`, `http://127.0.0.1:PORT`). `--localhost` without `--url` is rejected.
 - Add `--verbose` to see tunnel steps (download, start, port).
 
 ```bash
@@ -223,40 +227,35 @@ testrigor test-suite run "$SUITE" --localhost --url "http://localhost:3000" \
 
 ## Reading results / debugging a run
 
-In **sync mode** (default — do *not* pass `--async` while debugging) the CLI waits for
-completion and surfaces:
+In **sync mode** (default — do *not* pass `--async` while debugging) the CLI waits for completion and surfaces:
 
 - **Exit code** — `0` = all passed; non-zero = a test failed/was canceled. Primary gate.
-- **Run URL** printed in the output (`https://app.testrigor.com/.../runs/<id>`) — open
-  in a browser for step-level screenshots, video, and the exact failing step. (It's
-  authenticated, so a human opens it; the CLI can't fetch its contents.)
-- **JUnit XML** (`--junit-report-save-path`, sync only — produced **even when tests
-  fail**) — the machine-readable signal. testRigor emits standard JUnit: a failing
-  `<testcase status="failure">` carries a `<failure message="..." type="failure"/>`
-  whose `message` names the exact failing command, and `<testsuite failures="N">` holds
-  the count. Each `<testcase>` also includes its `testCaseUuid` — **except in
-  `--labels`-filtered runs**, where (verified) the `<testcase>` name/uuid come back
-  empty (`name="Test Case UUID="`); there, identify failures by the `<failure>`
-  `message` and the run URL, not the testcase name. Parse it:
+- **Run URL** printed in the output (`https://app.testrigor.com/.../runs/<id>`) — open in a browser for step-level screenshots, video, and the exact failing step. (It's authenticated, so a human opens it; the CLI can't fetch its contents.)
+- **JUnit XML** (`--junit-report-save-path`, sync only — produced **even when tests fail**) — the machine-readable signal. testRigor emits standard JUnit: a failing `<testcase status="failure">` carries a `<failure message="..." type="failure"/>` whose `message` names the exact failing command, and `<testsuite failures="N">` holds the count. Each `<testcase>` also includes its `testCaseUuid` — **except in `--labels`-filtered runs**, where (verified) the `<testcase>` name/uuid come back empty (`name="Test Case UUID="`); there, identify failures by the `<failure>` `message` and the run URL, not the testcase name. Parse it:
   ```bash
   mkdir -p ./.run                                                  # parent dir must exist
   xmllint --xpath 'string(//testsuite/@failures)' ./.run/report.xml   # 0 = all passed
   grep -A1 '<failure' ./.run/report.xml                           # failing cases + reason
   xmllint --xpath '//testcase[failure]/@name' ./.run/report.xml   # list failing test names
   ```
-- **Iterate on one test** without re-running the suite: grab the failing test's
-  `testCaseUuid` from the report, then `--test-case-uuid <uuid> --url <url>`.
-- **Cleaner logs**: set `CI=true` to force the line-by-line (verbose) renderer instead
-  of the interactive spinner — useful when capturing output programmatically.
+- **Iterate on one test** without re-running the suite: grab the failing test's `testCaseUuid` from the report, then `--test-case-uuid <uuid> --url <url>`.
 
-Internally the CLI polls run status every 10s; `200`=passed, `230`=failed,
-`229`=canceled, `228/227`=running — these map onto the exit code above.
+Internally the CLI polls run status every 10s; `200`=passed, `230`=failed, `229`=canceled, `228/227`=running — these map onto the exit code above.
 
-**Expect minutes, not seconds.** Cloud browsers spin up per run, richer pages take
-longer, and **failing tests are the slowest** because testRigor auto-waits/retries
-before giving up (a few failing tests can push a run past 5 minutes). When calling the
-CLI from an agent or CI step, set a generous timeout (≈10 min) and stay in sync mode so
-the exit code gates the job.
+**Expect minutes, not seconds.** Cloud browsers spin up per run, richer pages take longer, and **failing tests are the slowest** because testRigor auto-waits/retries before giving up (a few failing tests can push a run past 5 minutes). When calling the CLI from an agent or CI step, set a generous timeout (≈10 min) and stay in sync mode so the exit code gates the job.
+
+## MCP server (the agent-native alternative)
+
+testRigor also offers an **MCP server** — for an agent, often a better fit than the CLI for running suites and reading results, because it returns **structured data** (no JUnit parsing) and never hits an interactive prompt. Add it to Claude Code with your PAT:
+
+```bash
+claude mcp add --transport http testrigor https://api2.testrigor.com/api/v1/mcp \
+  --header "personal-access-token: <YOUR_PAT>" -s user
+```
+
+Other MCP-capable agents (Cursor, etc.) point their own MCP config at the same endpoint (`https://api2.testrigor.com/api/v1/mcp`) with the `personal-access-token` header. The server exposes tools to list/retrieve test suites & cases, run test cases or a green regression, list runs, and read run failures. Use the MCP when you want programmatic run/inspect from the agent; use this CLI for terminal/CI pipelines and the file-push (mutation) workflow.
+
+> Guide: https://testrigor.com/how-to-utilise-testrigors-mcp-server/
 
 ## Recipes
 
@@ -264,7 +263,6 @@ Smoke run gated in CI, with JUnit output:
 
 ```bash
 testrigor test-suite run "$TEST_SUITE_ID" \
-  --token "$TESTRIGOR_SUITE_TOKEN" \
   --labels smoke,critical \
   --junit-report-save-path ./testrigor-report.xml
 ```
@@ -272,7 +270,7 @@ testrigor test-suite run "$TEST_SUITE_ID" \
 Fire-and-forget (async) — kick off and let the pipeline continue:
 
 ```bash
-testrigor test-suite run --async --token "$TESTRIGOR_SUITE_TOKEN"
+testrigor test-suite run --async
 ```
 
 Test a local dev server via tunnel:
@@ -309,22 +307,14 @@ testrigor test-suite run --file-path ./build/app-release.apk
 
 ## CI/CD notes
 
-- Provide tokens via environment secrets (`$TESTRIGOR_SUITE_TOKEN`), never commit them.
+- Provide the PAT via an environment secret (`$TESTRIGOR_API_KEY`), never commit it.
 - Use **sync mode** (omit `--async`) when you want the job to pass/fail on results.
-- Combine `--junit-report-save-path` with your CI's JUnit ingestion to surface
-  per-test results.
-- `--labels` / `--excluded-labels` let one suite power several pipelines
-  (smoke on every push, full regression nightly).
+- Combine `--junit-report-save-path` with your CI's JUnit ingestion to surface per-test results.
+- `--labels` / `--excluded-labels` let one suite power several pipelines (smoke on every push, full regression nightly).
 
 ## Troubleshooting
 
 - `testrigor <command> --help` prints exact flags for the installed version.
-- Auth errors → confirm `TESTRIGOR_API_KEY` is exported (or `--auth-token`/`--token`
-  is passed) and the token hasn't expired in *API Tokens*; for suite tokens confirm
-  the ID matches the suite URL. Don't rely on `testrigor authenticate` in automation —
-  it prompts interactively.
-- Globs match nothing → quote them (`"test-cases/**/*.txt"`) so the CLI expands them,
-  not the shell.
-- Self-hosted / non-US region → set `--base-url-web` and `--base-url-api` together.
-- `--junit-report-save-path` produces nothing in `--async` mode (no results yet), and
-  won't create missing parent directories — `mkdir -p` first.
+- Auth errors → confirm `TESTRIGOR_API_KEY` is exported (or `--auth-token` is passed) and the token hasn't expired in *API Tokens*. Don't rely on `testrigor authenticate` in automation — it prompts interactively.
+- Globs match nothing → quote them (`"test-cases/**/*.txt"`) so the CLI expands them, not the shell.
+- `--junit-report-save-path` produces nothing in `--async` mode (no results yet), and won't create missing parent directories — `mkdir -p` first.
