@@ -12,7 +12,7 @@ metadata:
             {
               "id": "node",
               "kind": "node",
-              "package": "testrigor-cli",
+              "package": "@testrigor/testrigor-cli",
               "bins": ["testrigor"],
               "label": "Install testRigor CLI (npm)",
             },
@@ -34,8 +34,8 @@ This skill is the flag-level reference. To **write** test cases use `testrigor-w
 Requires Node.js ≥ 18.
 
 ```bash
-npm install -g testrigor-cli
-testrigor --version          # e.g. testrigor-cli/0.0.41-beta
+npm install -g @testrigor/testrigor-cli
+testrigor --version          # e.g. @testrigor/testrigor-cli/0.0.49-beta
 testrigor --help
 ```
 

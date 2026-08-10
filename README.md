@@ -41,7 +41,7 @@ cp -r skills/testrigor-* ~/.claude/skills/
 The `testrigor-cli` skill needs the CLI (Node.js ≥ 18) and a Personal Authentication Token (PAT). Get a PAT in the app: *username (top-right) → API Tokens → Generate New Token*.
 
 ```bash
-npm install -g testrigor-cli
+npm install -g @testrigor/testrigor-cli
 export TESTRIGOR_API_KEY="<YOUR_PERSONAL_AUTH_TOKEN>"   # non-interactive (best for agents/CI)
 ```
 
