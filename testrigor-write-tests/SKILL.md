@@ -1,6 +1,6 @@
 ---
 name: testrigor-write-tests
-description: Author testRigor automated test cases in plain-English commands — navigation, clicks, typing, assertions, reusable rules, variables, data-driven tests, API steps (`call api`/`mock api`), and login/email/SMS/2FA flows. Use when writing, editing, or converting manual test steps into testRigor test cases (as `test-cases/*.txt` files or steps pasted into the testRigor app), or when asked how to express a step in testRigor's language. Full command catalog in `reference.md`; worked authoring examples in `examples.md`; API steps in `api-testing.md`. To run suites use the `testrigor-cli` skill.
+description: Author testRigor automated test cases in plain-English commands — navigation, clicks, typing, assertions, reusable rules, variables, data-driven tests, API steps (`call api`/`mock api`), and login/email/SMS/2FA flows. Use when writing, editing, or converting manual test steps into testRigor test cases (as `test-cases/*.txt` files or steps pasted into the testRigor app), or when asked how to express a step in testRigor's language, or to check that steps parse without spending a run (`validate_syntax`). Full command catalog in `reference.md`; worked authoring examples in `examples.md`; API steps in `api-testing.md`. To run suites use the `testrigor-cli` skill.
 ---
 
 # Writing testRigor Test Cases
@@ -263,6 +263,43 @@ To **run** these files (a run also pushes them into the remote suite, updating i
 
 To call REST endpoints, extract JSON, assert on status codes, chain API + UI, or mock a dependency — all inside the same test case — see [api-testing.md](api-testing.md).
 
+## Validate before you run
+
+A run takes minutes; a syntax check takes a second. After writing or editing steps, confirm they parse before running.
+
+**MCP** — call `validate_syntax` with the suite ID and the steps:
+
+```
+validate_syntax(testSuiteId: "<TEST_SUITE_ID>", steps: "click \"Sign in\"\ncheck that page contains \"Welcome\"")
+```
+
+Valid steps return `{"summary": "No issues found.", "issues": []}`; otherwise `issues` lists each command that didn't parse, each as a `{command, error}` pair.
+
+**REST** — the same check without MCP. `auth-token` accepts a PAT or the suite's API token:
+
+```bash
+curl -s -X POST "https://api2.testrigor.com/api/v1/apps/$SUITE/validate-syntax" \
+  -H "Content-Type: application/json" -H "auth-token: $TESTRIGOR_API_KEY" \
+  -d '{"steps":"click \"Sign in\"\ncheck that page contains \"Welcome\""}'
+```
+
+**CLI** — `testrigor test-suite validate-syntax`, either an inline string or a batch of files:
+
+```bash
+testrigor test-suite validate-syntax "$SUITE" --token "$TESTRIGOR_API_KEY" --steps 'click "Sign in"'
+testrigor test-suite validate-syntax "$SUITE" --token "$TESTRIGOR_API_KEY" --test-cases-path 'test_cases/**/*.{yaml,txt}'
+```
+
+With `--test-cases-path`, every matched file is validated independently and reported by name — one invalid file doesn't stop the rest from being checked, and the command exits non-zero if any file fails.
+
+Things to know about the result:
+
+- **The HTTP status is always `200`** once you're authenticated. The real verdict is the `status` field *inside* the body — `204` valid, `422` not valid. Don't gate on the HTTP code or a shell exit code.
+- **The error message tells you how specific the failure is.** A recognized command that's malformed gets a precise message (e.g. `click` alone → "Missing reference to an element: click"). A command the parser can't recognize at all gets a generic fallback ("Unrecognizable instruction, can't detect action: `<command>`") — treat that one as "re-check this line against [reference.md](reference.md)," not as a specific diagnosis.
+- **A rule referenced but not yet saved to the suite is reported as unrecognized — unless you supply it ad hoc.** Built-ins (`login`, `fill out form`) always parse, and a rule already saved to the suite resolves normally. For a rule that only exists as a local file, pass it explicitly: MCP/REST take an optional `rules` list (`[{name, steps, labels}]`, labels optional), the CLI takes `--rules-path` (same glob format as `test-suite run --rules-path`). By default the supplied rules merge with the suite's saved ones — a rule with the same name as an already-saved one is used in place of it, no conflict. Set `explicitMutations`/`--explicit-mutations` to validate against *only* the supplied rules, ignoring the suite's saved ones entirely.
+
+Validation proves only that steps *parse*. It cannot tell you whether `"Sign in"` is actually on the page — that still takes a run.
+
 ## When you're unsure of the exact keyword
 
-Read [reference.md](reference.md) — it lists every command category with exact syntax. testRigor is forgiving about phrasing, but using the documented keywords (`click`, `enter ... into ...`, `check that page contains ...`, `grab ... and save it as ...`) is the most reliable. If a step is genuinely visual or ambiguous, add `using AI` (e.g. `check that page "shows a success banner" using ai`).
+Read [reference.md](reference.md) — it lists every command category with exact syntax. testRigor is forgiving about phrasing, but using the documented keywords (`click`, `enter ... into ...`, `check that page contains ...`, `grab ... and save it as ...`) is the most reliable. If a step is genuinely visual or ambiguous, add `using AI` (e.g. `check that page "shows a success banner" using ai`). When you've guessed at phrasing, settle it with `validate_syntax` (above) rather than finding out mid-run.

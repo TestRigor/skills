@@ -137,10 +137,11 @@ For the on-disk file schema (`.txt` vs `.yaml`, labels, datasets, `testCaseUuid`
 ## Command tree
 
 ```
-testrigor authenticate                 # INTERACTIVE prompt — human-once only; never in automation
-testrigor test-suite config             # --default <id> | --show | --delete
-testrigor test-suite run [ID] [flags]   # push files + trigger a run
-testrigor plugins                       # list installed plugins
+testrigor authenticate                             # INTERACTIVE prompt — human-once only; never in automation
+testrigor test-suite config                        # --default <id> | --show | --delete
+testrigor test-suite run [ID] [flags]              # push files + trigger a run
+testrigor test-suite validate-syntax [ID] [flags]  # check step syntax, no run
+testrigor plugins                                  # list installed plugins
 testrigor help [command]
 ```
 
@@ -208,6 +209,22 @@ Reporting:
 |------|---------|
 | `--junit-report-save-path <file>` | Write a JUnit XML report (sync mode only) |
 
+## `test-suite validate-syntax` flags
+
+Checks step syntax against the suite's reusable rules without running anything — no test execution, no mutation of the suite. Exactly one of `--steps`/`--test-cases-path` is required.
+
+| Flag | Purpose |
+|------|---------|
+| `--steps <text>` | Raw step text to validate directly (mutually exclusive with `--test-cases-path`) |
+| `--test-cases-path <glob>` | Test case files to validate — each is checked independently and reported by name; one invalid file doesn't stop the rest, and the command exits non-zero if any fail |
+| `--rules-path <glob>` | Ad hoc reusable rules to validate against, for rules not yet saved to this suite (same glob format as `test-suite run --rules-path`) |
+| `--explicit-mutations` | Validate using only the supplied `--rules-path` rules instead of merging with the suite's saved rules |
+
+```bash
+testrigor test-suite validate-syntax "$TEST_SUITE_ID" --steps 'click "Sign in"'
+testrigor test-suite validate-syntax "$TEST_SUITE_ID" --test-cases-path "test-cases/**/*.{txt,yaml,yml}" --rules-path "rules/**/*.yaml"
+```
+
 ## Localhost debugging (the tunnel)
 
 `--localhost --url http://localhost:3000` lets testRigor's cloud browsers reach an app running on your machine. Mechanics (so you know what to expect):
@@ -253,7 +270,7 @@ claude mcp add --transport http testrigor https://api2.testrigor.com/api/v1/mcp 
   --header "personal-access-token: <YOUR_PAT>" -s user
 ```
 
-Other MCP-capable agents (Cursor, etc.) point their own MCP config at the same endpoint (`https://api2.testrigor.com/api/v1/mcp`) with the `personal-access-token` header. The server exposes tools to list/retrieve test suites & cases, run test cases or a green regression, list runs, and read run failures. Use the MCP when you want programmatic run/inspect from the agent; use this CLI for terminal/CI pipelines and the file-push (mutation) workflow.
+Other MCP-capable agents (Cursor, etc.) point their own MCP config at the same endpoint (`https://api2.testrigor.com/api/v1/mcp`) with the `personal-access-token` header. The server exposes tools to list/retrieve test suites & cases, validate step syntax without running, run test cases or a green regression, list runs, and read run failures. Use the MCP when you want programmatic run/inspect from the agent; use this CLI for terminal/CI pipelines and the file-push (mutation) workflow.
 
 > Guide: https://testrigor.com/how-to-utilise-testrigors-mcp-server/
 
@@ -297,6 +314,14 @@ testrigor test-suite run \
   --variables-path variables.json \
   --settings-path settings.yaml \
   --explicit-mutations
+```
+
+Gate a commit on syntax before the real run (seconds instead of minutes):
+
+```bash
+testrigor test-suite validate-syntax "$TEST_SUITE_ID" \
+  --test-cases-path "test-cases/**/*.txt" \
+  --rules-path "rules/**/*.yaml"
 ```
 
 Upload and test a mobile build:

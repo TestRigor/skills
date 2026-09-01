@@ -56,7 +56,7 @@ claude mcp add --transport http testrigor https://api2.testrigor.com/api/v1/mcp 
   --header "personal-access-token: <YOUR_PAT>" -s user
 ```
 
-Other MCP-capable agents (Cursor, etc.) point their own MCP config at `https://api2.testrigor.com/api/v1/mcp` with the same `personal-access-token` header. The server can list/retrieve suites & cases, run test cases or a green regression, list runs, and read run failures. Guide: https://testrigor.com/how-to-utilise-testrigors-mcp-server/
+Other MCP-capable agents (Cursor, etc.) point their own MCP config at `https://api2.testrigor.com/api/v1/mcp` with the same `personal-access-token` header. The server can list/retrieve suites & cases, validate step syntax without running, run test cases or a green regression, list runs, and read run failures. Guide: https://testrigor.com/how-to-utilise-testrigors-mcp-server/
 
 ## Runnable examples
 

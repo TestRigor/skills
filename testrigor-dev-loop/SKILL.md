@@ -21,12 +21,12 @@ There is **no separate "deploy" step.** When you run with `--test-cases-path` / 
 ## The loop
 
 ```
-edit files  →  run (localhost, --test-cases-path/--rules-path)  →  exit code + report.xml
-     ▲                                                                      │
-     └──────────────────── fix failing steps ◀──────────────────────────────┘
+edit files  →  validate syntax  →  run (--test-cases-path/--rules-path)  →  exit code + report.xml
+     ▲                                                                                │
+     └────────────────────────────── fix failing steps ◀──────────────────────────────┘
 ```
 
-Stop when the exit code is `0` and `report.xml` shows no failures.
+Validating first is optional but nearly free — it catches a mistyped command in a second instead of minutes into a run. See `testrigor-write-tests` → "Validate before you run". Stop when the exit code is `0` and `report.xml` shows no failures.
 
 ## 0. One-time setup
 
@@ -91,7 +91,7 @@ grep -A2 '<failure' testrigor/.run/report.xml      # quick look at failures + re
 
 Then fix the offending `.txt`/`.yaml` file and go back to step 2. Because re-running re-pushes the files, your fix updates the remote test automatically.
 
-> **Cheap pre-check (runs take minutes).** After changing the app or a test, `grep` the page for the exact text and controls your tests assert before burning a full run — `grep -F "Thank you for your purchase!" end.html`. Catching a renamed label or a removed button statically is far faster than waiting on the cloud run.
+> **Cheap pre-checks (runs take minutes).** Two are worth doing before burning a full run. **Syntax** — `validate_syntax`/`test-suite validate-syntax` tells you in a second whether every step parses (`testrigor-write-tests` → "Validate before you run"); if you just added a rule as a local file and haven't pushed it yet, pass it via `rules`/`--rules-path` or it'll be reported as unrecognized. **Content** — `grep` the page for the exact text and controls your tests assert, `grep -F "Thank you for your purchase!" end.html`. Catching a mistyped command or a renamed label statically is far faster than waiting on the cloud run.
 
 ## 4. "Update remote" is just re-running
 
