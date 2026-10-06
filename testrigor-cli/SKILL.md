@@ -219,6 +219,7 @@ Checks step syntax against the suite's reusable rules without running anything â
 | `--test-cases-path <glob>` | Test case files to validate â€” each is checked independently and reported by name; one invalid file doesn't stop the rest, and the command exits non-zero if any fail |
 | `--rules-path <glob>` | Ad hoc reusable rules to validate against, for rules not yet saved to this suite (same glob format as `test-suite run --rules-path`) |
 | `--explicit-mutations` | Validate using only the supplied `--rules-path` rules instead of merging with the suite's saved rules |
+| `--use-suite-parsing-mode` | Validate with the suite's own parsing mode setting instead of strict parsing (the default) |
 
 ```bash
 testrigor test-suite validate-syntax "$TEST_SUITE_ID" --steps 'click "Sign in"'
